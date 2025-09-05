@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import bcrypt from "bcryptjs";
 
 export default function SignUp() {
@@ -20,6 +22,7 @@ export default function SignUp() {
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +65,18 @@ export default function SignUp() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    setError("");
+    
+    try {
+      await signIn("google", { callbackUrl: "/onboarding" });
+    } catch (error) {
+      setError("An error occurred with Google sign up. Please try again.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -77,6 +92,28 @@ export default function SignUp() {
           <CardDescription>Create your account to get started</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="space-y-4">
+            <Button 
+              onClick={handleGoogleSignUp} 
+              variant="outline" 
+              className="w-full"
+              disabled={isGoogleLoading}
+            >
+              {isGoogleLoading ? "Creating account..." : "Continue with Google"}
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-gray-50 px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
+          </div>
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

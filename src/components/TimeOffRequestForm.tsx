@@ -3,13 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import {
-  format,
-  isSameDay,
-  isWithinInterval,
-  addDays,
-  isWeekend,
-} from "date-fns";
+import moment from "moment";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,11 +41,11 @@ import { createTimeOffRequest } from "@/lib/actions/employee-actions";
 
 const getDaysBetween = (startDate: Date, endDate: Date) => {
   const days = [];
-  let currentDate = new Date(startDate);
+  let currentDate = moment(startDate);
 
-  while (currentDate <= endDate) {
-    days.push(new Date(currentDate));
-    currentDate = addDays(currentDate, 1);
+  while (currentDate.isSameOrBefore(endDate)) {
+    days.push(currentDate.toDate());
+    currentDate = currentDate.add(1, 'day');
   }
 
   return days;
@@ -91,21 +85,23 @@ const hasDateOverlap = (
     const requestStart = new Date(request.startDate);
     const requestEnd = new Date(request.endDate);
 
+    const startMoment = moment(startDate);
+    const endMoment = moment(endDate);
+    const requestStartMoment = moment(requestStart);
+    const requestEndMoment = moment(requestEnd);
+
     const startOverlap =
-      isWithinInterval(startDate, { start: requestStart, end: requestEnd }) ||
-      isSameDay(startDate, requestStart) ||
-      isSameDay(startDate, requestEnd);
+      startMoment.isBetween(requestStartMoment, requestEndMoment, null, '[]') ||
+      startMoment.isSame(requestStartMoment, 'day') ||
+      startMoment.isSame(requestEndMoment, 'day');
 
     const endOverlap =
-      isWithinInterval(endDate, {
-        start: requestStart,
-        end: requestEnd,
-      }) ||
-      isSameDay(endDate, requestStart) ||
-      isSameDay(endDate, requestEnd);
+      endMoment.isBetween(requestStartMoment, requestEndMoment, null, '[]') ||
+      endMoment.isSame(requestStartMoment, 'day') ||
+      endMoment.isSame(requestEndMoment, 'day');
 
     const encompassesExisting =
-      startDate <= requestStart && endDate >= requestEnd;
+      startMoment.isSameOrBefore(requestStartMoment) && endMoment.isSameOrAfter(requestEndMoment);
 
     if (startOverlap || endOverlap || encompassesExisting) {
       return { overlaps: true, conflictingRequest: request };
@@ -131,9 +127,9 @@ const getRequestTypeColor = (type: TimeOffType) => {
 };
 
 const bankHolidays = [
-  new Date(new Date().getFullYear(), 0, 1), // New Year's Day
-  new Date(new Date().getFullYear(), 11, 25), // Christmas Day
-  new Date(new Date().getFullYear(), 11, 26), // Boxing Day
+  moment().month(0).date(1).toDate(), // New Year's Day
+  moment().month(11).date(25).toDate(), // Christmas Day
+  moment().month(11).date(26).toDate(), // Boxing Day
 ];
 
 const calculateWorkingDays = (
@@ -154,14 +150,14 @@ const calculateWorkingDays = (
   const excludedDays: Date[] = [];
 
   daysBetween.forEach((day) => {
-    if (excludeWeekends && isWeekend(day)) {
+    if (excludeWeekends && (moment(day).day() === 0 || moment(day).day() === 6)) {
       excludedDays.push(day);
       return;
     }
 
     if (
       excludeHolidays &&
-      bankHolidays.some((holiday) => isSameDay(holiday, day))
+      bankHolidays.some((holiday) => moment(holiday).isSame(day, 'day'))
     ) {
       excludedDays.push(day);
       return;
@@ -169,13 +165,13 @@ const calculateWorkingDays = (
 
     if (
       excludeHolidays &&
-      companyHolidays.some((holiday) => isSameDay(holiday.date, day))
+      companyHolidays.some((holiday) => moment(holiday.date).isSame(day, 'day'))
     ) {
       excludedDays.push(day);
       return;
     }
 
-    if (customExcludedDates.some((excluded) => isSameDay(excluded, day))) {
+    if (customExcludedDates.some((excluded) => moment(excluded).isSame(day, 'day'))) {
       excludedDays.push(day);
       return;
     }
@@ -240,14 +236,8 @@ const TimeOffRequestForm = ({
       );
 
       if (overlaps && conflictingRequest) {
-        const formattedStart = format(
-          new Date(conflictingRequest.startDate),
-          "MMM d, yyyy"
-        );
-        const formattedEnd = format(
-          new Date(conflictingRequest.endDate),
-          "MMM d, yyyy"
-        );
+        const formattedStart = moment(conflictingRequest.startDate).format("MMM D, YYYY");
+        const formattedEnd = moment(conflictingRequest.endDate).format("MMM D, YYYY");
         setDateOverlapError(
           `This request overlaps with your existing ${conflictingRequest.type} time off request from ${formattedStart} to ${formattedEnd}.`
         );
@@ -328,8 +318,8 @@ const TimeOffRequestForm = ({
                           request.type.slice(1).toLowerCase()}
                       </Badge>
                       <div className="mt-1">
-                        {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
-                        {format(new Date(request.endDate), "MMM d, yyyy")}
+                        {moment(request.startDate).format("MMM D, YYYY")} -{" "}
+                        {moment(request.endDate).format("MMM D, YYYY")}
                       </div>
                       <div className="text-sm text-gray-500">
                         {request.reason && (
@@ -378,7 +368,7 @@ const TimeOffRequestForm = ({
                             }
                           }}
                           value={
-                            field.value ? format(field.value, "yyyy-MM-dd") : ""
+                            field.value ? moment(field.value).format("YYYY-MM-DD") : ""
                           }
                         />
                       </FormControl>
@@ -402,7 +392,7 @@ const TimeOffRequestForm = ({
                             }
                           }}
                           value={
-                            field.value ? format(field.value, "yyyy-MM-dd") : ""
+                            field.value ? moment(field.value).format("YYYY-MM-DD") : ""
                           }
                         />
                       </FormControl>
@@ -515,7 +505,7 @@ const TimeOffRequestForm = ({
                             variant="outline"
                             className="gap-1"
                           >
-                            {format(date, "MMM d, yyyy")}
+                            {moment(date).format("MMM D, YYYY")}
                             <Button
                               variant={"ghost"}
                               size="sm"
@@ -552,7 +542,7 @@ const TimeOffRequestForm = ({
                               onSelect={(date) => {
                                 if (date) {
                                   const exists = field.value.some((d) =>
-                                    isSameDay(d, date)
+                                    moment(d).isSame(date, 'day')
                                   );
                                   if (!exists) {
                                     field.onChange([...field.value, date]);
@@ -563,7 +553,7 @@ const TimeOffRequestForm = ({
                               disabled={(date) =>
                                 // Disable dates outside the selected range
                                 startDate && endDate
-                                  ? date < startDate || date > endDate
+                                  ? moment(date).isBefore(startDate) || moment(date).isAfter(endDate)
                                   : false
                               }
                               initialFocus
@@ -609,12 +599,10 @@ const TimeOffRequestForm = ({
                                       key={i}
                                       className="inline-block mr-2 mb-1 px-2 py-1 bg-gray-100 rounded"
                                     >
-                                      {format(day, "EEE, MMM d")}
-                                      {isWeekend(day)
+                                      {moment(day).format("ddd, MMM D")}
+                                      {(moment(day).day() === 0 || moment(day).day() === 6)
                                         ? " (weekend)"
-                                        : bankHolidays?.some((h) =>
-                                            isSameDay(h, day)
-                                          )
+                                        : bankHolidays?.some((h) => moment(h).isSame(day, 'day'))
                                         ? " (holiday )"
                                         : ""}
                                     </span>

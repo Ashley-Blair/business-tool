@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { format } from "date-fns";
+import moment from "moment";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -138,10 +138,7 @@ const CompanyHolidaysForm = ({
   }, [initialHolidays]);
 
   const formatDateForInput = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return moment(date).format('YYYY-MM-DD');
   };
 
   const handleAddHoliday = async (data: HolidayFormValues) => {
@@ -385,7 +382,7 @@ const CompanyHolidaysForm = ({
                           {holiday.name}
                         </TableCell>
                         <TableCell>
-                          {format(holiday.date, "MMMM d, yyyy")}
+                          {moment(holiday.date).format("MMMM D, YYYY")}
                         </TableCell>
                         <TableCell>
                           {holiday.isRecurring ? "Yes" : "No"}
@@ -516,7 +513,7 @@ const CompanyHolidaysForm = ({
               <div className="py-4">
                 <p className="font-medium">{selectedHoliday.name}</p>
                 <p className="text-gray-500">
-                  {format(selectedHoliday.date, "MMMM d, yyyy")}
+                  {moment(selectedHoliday.date).format("MMMM D, YYYY")}
                 </p>
                 {selectedHoliday.isRecurring && (
                   <Badge
